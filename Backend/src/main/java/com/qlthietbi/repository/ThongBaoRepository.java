@@ -1,0 +1,19 @@
+package com.qlthietbi.repository;
+
+import com.qlthietbi.entity.ThongBao;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface ThongBaoRepository extends JpaRepository<ThongBao, Integer> {
+    List<ThongBao> findAllByOrderByThoiGianDesc();
+
+    @Modifying
+    @Query("UPDATE ThongBao t SET t.daDoc = true WHERE t.daDoc = false")
+    void markAllRead();
+}
+
