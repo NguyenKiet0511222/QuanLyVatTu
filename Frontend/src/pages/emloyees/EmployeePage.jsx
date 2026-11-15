@@ -1,15 +1,40 @@
 import { useState, useEffect } from "react";
-import { Table, Button, Input, Modal, Form, Space, Popconfirm, message, Card, Typography, Tag, Select } from "antd";
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, UserOutlined, ContactsOutlined, HomeOutlined, PhoneOutlined, KeyOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
+import {
+  Button,
+  Input,
+  Modal,
+  Form,
+  Popconfirm,
+  message,
+  Tag,
+  Select,
+  Tooltip,
+} from "antd";
+import {
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  SearchOutlined,
+  UserOutlined,
+  ContactsOutlined,
+  HomeOutlined,
+  PhoneOutlined,
+  KeyOutlined,
+  SafetyCertificateOutlined,
+  MailOutlined,
+  LockOutlined,
+  UnlockOutlined,
+} from "@ant-design/icons";
 import employeeApi from "../../api/employeeApi";
-
-const { Title, Text } = Typography;
-const { Option } = Select;
+import StatusBadge from "../../components/common/StatusBadge";
 
 export default function EmployeePage() {
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const isAdmin = user?.role?.toUpperCase() === "ADMIN";
+
   const [employees, setEmployees] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form] = Form.useForm();
   const [editingId, setEditingId] = useState(null);
@@ -19,15 +44,11 @@ export default function EmployeePage() {
   }, []);
 
   const loadEmployees = async () => {
-    setLoading(true);
     try {
       const data = await employeeApi.getAll();
-      setEmployees(data);
+      setEmployees(data || []);
     } catch (err) {
-      console.error("Failed to fetch employees", err);
-      message.error("Không thể tải danh sách nhân viên!");
-    } finally {
-      setLoading(false);
+      message.error("Không thể tải danh sách tài khoản người dùng!");
     }
   };
 
@@ -35,30 +56,47 @@ export default function EmployeePage() {
     try {
       if (editingId) {
         await employeeApi.update(editingId, values);
-        message.success("Cập nhật nhân viên thành công!");
+        message.success("Cập nhật tài khoản thành công!");
       } else {
         await employeeApi.create(values);
-        message.success("Thêm nhân viên thành công!");
+        message.success("Thêm tài khoản người dùng thành công!");
       }
       setIsModalOpen(false);
       loadEmployees();
     } catch (err) {
-      console.error("Save failed", err);
-      if (err.response && err.response.data && typeof err.response.data === "string") {
-        message.error(err.response.data);
-      } else {
-        message.error("Lỗi khi lưu thông tin!");
-      }
+      const errMsg =
+        typeof err.response?.data === "string"
+          ? err.response.data
+          : "Lỗi khi lưu thông tin tài khoản!";
+      message.error(errMsg);
+    }
+  };
+
+  const handleToggleLock = async (record) => {
+    try {
+      await employeeApi.toggleLock(record.id);
+      const nextLocked = record.trangThai !== "LOCKED";
+      message.success(
+        nextLocked
+          ? `Đã khóa tài khoản ${record.hoTen}`
+          : `Đã mở khóa tài khoản ${record.hoTen}`
+      );
+      loadEmployees();
+    } catch (err) {
+      message.error(
+        typeof err.response?.data === "string"
+          ? err.response.data
+          : "Không thể thay đổi trạng thái tài khoản"
+      );
     }
   };
 
   const handleDelete = async (id) => {
     try {
       await employeeApi.delete(id);
-      message.success("Xóa nhân viên thành công!");
+      message.success("Đã xóa tài khoản người dùng!");
       loadEmployees();
     } catch (err) {
-      console.error("Delete failed", err);
       message.error("Xóa thất bại!");
     }
   };
@@ -66,6 +104,11 @@ export default function EmployeePage() {
   const openAdd = () => {
     setEditingId(null);
     form.resetFields();
+    form.setFieldsValue({
+      role: "STAFF",
+      trangThai: "ACTIVE",
+      matKhau: "123456",
+    });
     setIsModalOpen(true);
   };
 
@@ -75,143 +118,201 @@ export default function EmployeePage() {
     setIsModalOpen(true);
   };
 
-  const filtered = employees.filter(
-    (e) => e.hoTen?.toLowerCase().includes(search.toLowerCase()) || 
-           e.tenDangNhap?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = employees.filter((e) => {
+    const kw = search.trim().toLowerCase();
+    const matchSearch =
+      !kw ||
+      e.hoTen?.toLowerCase().includes(kw) ||
+      e.email?.toLowerCase().includes(kw) ||
+      e.soDienThoai?.toLowerCase().includes(kw) ||
+      e.tenDangNhap?.toLowerCase().includes(kw);
 
-  const columns = [
-    {
-      title: "Mã NV",
-      dataIndex: "id",
-      key: "id",
-      render: (id) => <Text strong style={{ color: "var(--primary)" }}>NV{id}</Text>,
-    },
-    {
-      title: "Họ tên",
-      dataIndex: "hoTen",
-      key: "hoTen",
-      render: (text) => <Text style={{ fontWeight: 600 }}>{text}</Text>,
-    },
-    {
-      title: "Vai trò",
-      dataIndex: "role",
-      key: "role",
-      render: (role) => (
-        <Tag color={role === "ADMIN" ? "volcano" : "green"}>
-          {role === "ADMIN" ? "ADMIN" : "STAFF"}
-        </Tag>
-      ),
-    },
-    {
-      title: "Tên đăng nhập",
-      dataIndex: "tenDangNhap",
-      key: "tenDangNhap",
-      render: (text) => <Text code>{text || "Chưa cấp"}</Text>,
-    },
-    {
-      title: "Mật khẩu",
-      dataIndex: "matKhau",
-      key: "matKhau",
-      render: (text) => (
-        text ? (
-          <Input.Password 
-            value={text} 
-            readOnly 
-            bordered={false} 
-            style={{ width: 120, padding: 0 }}
-          />
-        ) : (
-          <Text type="secondary">Chưa cấp</Text>
-        )
-      ),
-    },
-    {
-      title: "Địa chỉ",
-      dataIndex: "diaChi",
-      key: "diaChi",
-    },
-    {
-      title: "Số điện thoại",
-      dataIndex: "soDienThoai",
-      key: "soDienThoai",
-    },
-    {
-      title: "Hành động",
-      key: "actions",
-      render: (_, record) => (
-        <Space size="middle">
-          <Button 
-            type="primary" 
-            ghost 
-            icon={<EditOutlined />} 
-            onClick={() => openEdit(record)}
-          />
-          <Popconfirm
-            title="Bạn có chắc chắn muốn xóa nhân viên này?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Xóa"
-            cancelText="Hủy"
-            okButtonProps={{ danger: true }}
-          >
-            <Button 
-              danger 
-              icon={<DeleteOutlined />} 
-            />
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ];
+    const matchRole = roleFilter === "ALL" || e.role === roleFilter;
+    return matchSearch && matchRole;
+  });
 
   return (
-    <div className="slide-up" style={{ padding: 24 }}>
-      <Card style={{ borderRadius: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-          <div>
-            <Title level={2} style={{ margin: 0 }}>Quản lý nhân viên</Title>
-            <Text type="secondary">Cấp tài khoản, phân vai trò ADMIN/STAFF và quản trị hệ thống</Text>
-          </div>
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />} 
+    <div className="slide-up">
+      <div className="page-header">
+        <div>
+          <h1>Tra cứu & Quản lý tài khoản người dùng</h1>
+          <p className="page-header-sub">
+            Tra cứu thông tin liên hệ (Họ tên, Email, SĐT), cấp quyền và quản lý trạng thái tài khoản
+          </p>
+        </div>
+        {isAdmin && (
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
             onClick={openAdd}
             size="large"
-            style={{ borderRadius: 8 }}
+            style={{ borderRadius: 10, fontWeight: 600 }}
           >
-            Thêm nhân viên
+            Thêm tài khoản mới
           </Button>
+        )}
+      </div>
+
+      <div className="table-card">
+        <div className="table-toolbar">
+          <div className="table-toolbar-left">
+            <div className="search-box" style={{ minWidth: 320 }}>
+              <SearchOutlined style={{ color: "var(--text-muted)" }} />
+              <input
+                placeholder="Tra cứu theo họ tên, email, SĐT, tên đăng nhập..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+
+            <Select
+              value={roleFilter}
+              onChange={setRoleFilter}
+              style={{ width: 200 }}
+              size="large"
+              options={[
+                { value: "ALL", label: "Tất cả vai trò" },
+                { value: "ADMIN", label: "Cán bộ Quản lý (ADMIN)" },
+                { value: "STAFF", label: "Giảng viên / Nhân viên" },
+              ]}
+            />
+          </div>
         </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <Input
-            placeholder="Tìm kiếm theo họ tên hoặc tên đăng nhập..."
-            prefix={<SearchOutlined style={{ color: "var(--text-muted)" }} />}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: 350, borderRadius: 8 }}
-            size="large"
-          />
-        </div>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Mã</th>
+              <th>Họ và tên</th>
+              <th>Thông tin liên hệ (US5.2)</th>
+              <th>Tên đăng nhập</th>
+              <th>Vai trò</th>
+              <th>Trạng thái</th>
+              {isAdmin && <th>Thao tác</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={isAdmin ? 7 : 6}>
+                  <div className="empty-state">
+                    <div className="empty-icon">👥</div>
+                    <h3>Không tìm thấy tài khoản phù hợp</h3>
+                    <p>Thử tìm kiếm bằng từ khóa khác</p>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              filtered.map((e) => (
+                <tr key={e.id}>
+                  <td>
+                    <span style={{ fontWeight: 700, color: "var(--primary)" }}>
+                      NV{String(e.id).padStart(2, "0")}
+                    </span>
+                  </td>
+                  <td>
+                    <div style={{ color: "var(--text-primary)", fontWeight: 600 }}>
+                      {e.hoTen}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                      {e.chucVu || "Giảng viên / Cán bộ"}
+                    </div>
+                  </td>
+                  <td>
+                    <div style={{ fontSize: 13, color: "#0f172a" }}>
+                      <MailOutlined style={{ marginRight: 6, color: "#4f46e5" }} />
+                      {e.email || `${e.tenDangNhap || "user"}@uni.edu.vn`}
+                    </div>
+                    <div style={{ fontSize: 12.5, color: "#475569", marginTop: 2 }}>
+                      <PhoneOutlined style={{ marginRight: 6, color: "#10b981" }} />
+                      {e.soDienThoai || "0912345678"}
+                      {e.diaChi ? ` • ${e.diaChi}` : ""}
+                    </div>
+                  </td>
+                  <td>
+                    <Tag style={{ fontFamily: "monospace", fontSize: 12.5 }}>
+                      {e.tenDangNhap || "Chưa cấp"}
+                    </Tag>
+                  </td>
+                  <td>
+                    <Tag color={e.role === "ADMIN" ? "volcano" : "blue"} style={{ fontWeight: 600 }}>
+                      {e.role === "ADMIN" ? "ADMIN" : "STAFF"}
+                    </Tag>
+                  </td>
+                  <td>
+                    <StatusBadge status={e.trangThai || "ACTIVE"} />
+                  </td>
+                  {isAdmin && (
+                    <td>
+                      <div className="action-btns">
+                        <Tooltip title="Chỉnh sửa thông tin">
+                          <button className="action-btn" onClick={() => openEdit(e)}>
+                            <EditOutlined />
+                          </button>
+                        </Tooltip>
 
-        <Table 
-          columns={columns} 
-          dataSource={filtered} 
-          rowKey="id" 
-          loading={loading}
-          pagination={{ pageSize: 8 }}
-          style={{ borderRadius: 8, overflow: "hidden" }}
-        />
-      </Card>
+                        {e.tenDangNhap && e.tenDangNhap !== "admin" && (
+                          <Tooltip
+                            title={
+                              e.trangThai === "LOCKED"
+                                ? "Mở khóa tài khoản"
+                                : "Khóa tài khoản"
+                            }
+                          >
+                            <button
+                              className="action-btn"
+                              style={{
+                                color: e.trangThai === "LOCKED" ? "#10b981" : "#f59e0b",
+                              }}
+                              onClick={() => handleToggleLock(e)}
+                            >
+                              {e.trangThai === "LOCKED" ? <UnlockOutlined /> : <LockOutlined />}
+                            </button>
+                          </Tooltip>
+                        )}
+
+                        {e.tenDangNhap !== "admin" && (
+                          <Popconfirm
+                            title="Bạn có chắc chắn muốn xóa tài khoản này?"
+                            onConfirm={() => handleDelete(e.id)}
+                            okText="Xóa"
+                            cancelText="Hủy"
+                            okButtonProps={{ danger: true }}
+                          >
+                            <button className="action-btn danger" title="Xóa">
+                              <DeleteOutlined />
+                            </button>
+                          </Popconfirm>
+                        )}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+
+        <div className="table-footer">
+          <span className="info">
+            Hiển thị {filtered.length} / {employees.length} tài khoản người dùng
+          </span>
+        </div>
+      </div>
 
       <Modal
-        title={editingId ? "✏️ Chỉnh sửa nhân viên & tài khoản" : "➕ Thêm nhân viên & tài khoản mới"}
+        title={
+          editingId
+            ? "✏️ Chỉnh sửa thông tin & tài khoản người dùng"
+            : "➕ Thêm tài khoản người dùng mới"
+        }
         open={isModalOpen}
         onCancel={() => setIsModalOpen(false)}
         onOk={() => form.submit()}
-        okText="Lưu"
+        okText="Lưu tài khoản"
         cancelText="Hủy"
         destroyOnClose
+        width={560}
       >
         <Form
           form={form}
@@ -219,63 +320,89 @@ export default function EmployeePage() {
           onFinish={handleSave}
           style={{ marginTop: 16 }}
         >
-          <Form.Item
-            name="hoTen"
-            label="Họ và tên"
-            rules={[{ required: true, message: "Vui lòng nhập họ tên nhân viên!" }]}
-          >
-            <Input prefix={<UserOutlined />} placeholder="Ví dụ: Nguyễn Văn A" />
-          </Form.Item>
+          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 12 }}>
+            <Form.Item
+              name="hoTen"
+              label="Họ và tên"
+              rules={[{ required: true, message: "Vui lòng nhập họ tên!" }]}
+            >
+              <Input prefix={<UserOutlined />} placeholder="Ví dụ: Nguyễn Văn A" />
+            </Form.Item>
 
-          <Form.Item
-            name="chucVu"
-            label="Chức danh"
-            rules={[{ required: true, message: "Vui lòng nhập chức vụ!" }]}
-          >
-            <Input prefix={<ContactsOutlined />} placeholder="Ví dụ: Thủ kho, Quản lý..." />
-          </Form.Item>
+            <Form.Item
+              name="chucVu"
+              label="Chức danh / Đơn vị"
+              rules={[{ required: true, message: "Vui lòng nhập chức vụ!" }]}
+            >
+              <Input prefix={<ContactsOutlined />} placeholder="Ví dụ: Giảng viên CNTT" />
+            </Form.Item>
+          </div>
 
-          <Form.Item
-            name="role"
-            label="Vai trò (Phân quyền)"
-            rules={[{ required: true, message: "Vui lòng chọn vai trò!" }]}
-            initialValue="STAFF"
-          >
-            <Select suffixIcon={<SafetyCertificateOutlined />}>
-              <Option value="ADMIN">ADMIN (Quản trị viên)</Option>
-              <Option value="STAFF">STAFF (Nhân viên)</Option>
-            </Select>
-          </Form.Item>
+          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 12 }}>
+            <Form.Item
+              name="email"
+              label="Email liên hệ"
+              rules={[
+                { required: true, message: "Vui lòng nhập email!" },
+                { type: "email", message: "Email không hợp lệ!" },
+              ]}
+            >
+              <Input prefix={<MailOutlined />} placeholder="nguyenvana@uni.edu.vn" />
+            </Form.Item>
 
-          <Form.Item
-            name="tenDangNhap"
-            label="Tên đăng nhập"
-            rules={[{ required: true, message: "Vui lòng nhập tên đăng nhập!" }]}
-          >
-            <Input prefix={<UserOutlined />} placeholder="Ví dụ: nv_nguyenvana" />
-          </Form.Item>
+            <Form.Item
+              name="soDienThoai"
+              label="Số điện thoại"
+              rules={[
+                { required: true, message: "Vui lòng nhập SĐT!" },
+                { pattern: /^\d{9,11}$/, message: "SĐT chỉ chứa 9-11 chữ số!" },
+              ]}
+            >
+              <Input prefix={<PhoneOutlined />} placeholder="0987654321" />
+            </Form.Item>
+          </div>
 
-          <Form.Item
-            name="matKhau"
-            label="Mật khẩu (Reset mật khẩu)"
-            rules={[{ required: true, message: "Vui lòng nhập mật khẩu!" }]}
-            initialValue="123456"
-          >
-            <Input.Password prefix={<KeyOutlined />} placeholder="Nhập mật khẩu mới" />
-          </Form.Item>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Form.Item
+              name="tenDangNhap"
+              label="Tên đăng nhập"
+              rules={[{ required: true, message: "Vui lòng nhập tên đăng nhập!" }]}
+            >
+              <Input prefix={<UserOutlined />} placeholder="Ví dụ: gv_nguyenvana" />
+            </Form.Item>
 
-          <Form.Item
-            name="diaChi"
-            label="Địa chỉ"
-          >
-            <Input prefix={<HomeOutlined />} placeholder="Ví dụ: 123 Đường Láng, Hà Nội" />
-          </Form.Item>
+            <Form.Item
+              name="matKhau"
+              label="Mật khẩu"
+              rules={[{ required: true, message: "Vui lòng nhập mật khẩu!" }]}
+            >
+              <Input.Password prefix={<KeyOutlined />} placeholder="Nhập mật khẩu" />
+            </Form.Item>
+          </div>
 
-          <Form.Item
-            name="soDienThoai"
-            label="Số điện thoại"
-          >
-            <Input prefix={<PhoneOutlined />} placeholder="Ví dụ: 0987654321" />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Form.Item name="role" label="Vai trò hệ thống">
+              <Select
+                suffixIcon={<SafetyCertificateOutlined />}
+                options={[
+                  { value: "ADMIN", label: "ADMIN (Cán bộ quản lý)" },
+                  { value: "STAFF", label: "STAFF (Giảng viên / Người dùng)" },
+                ]}
+              />
+            </Form.Item>
+
+            <Form.Item name="trangThai" label="Trạng thái tài khoản">
+              <Select
+                options={[
+                  { value: "ACTIVE", label: "Đang hoạt động" },
+                  { value: "LOCKED", label: "Bị khóa" },
+                ]}
+              />
+            </Form.Item>
+          </div>
+
+          <Form.Item name="diaChi" label="Địa chỉ">
+            <Input prefix={<HomeOutlined />} placeholder="Ví dụ: Cầu Giấy, Hà Nội" />
           </Form.Item>
         </Form>
       </Modal>

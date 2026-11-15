@@ -5,11 +5,14 @@ function App() {
   return (
     <ConfigProvider
       theme={{
-        algorithm: theme.darkAlgorithm,
+        algorithm: theme.defaultAlgorithm,
         token: {
-          colorPrimary: "#6366f1",
-          borderRadius: 8,
-          fontFamily: "'Inter', sans-serif",
+          colorPrimary: "#4f46e5",
+          borderRadius: 10,
+          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+          colorBgContainer: "#ffffff",
+          colorText: "#0f172a",
+          colorTextSecondary: "#475569",
         },
       }}
     >

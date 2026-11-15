@@ -5,6 +5,7 @@ const deviceApi = {
   getById: (id) => axiosClient.get(`devices/${id}`),
   create: (data) => axiosClient.post("devices", data),
   update: (id, data) => axiosClient.put(`devices/${id}`, data),
+  liquidate: (id, data) => axiosClient.put(`devices/${id}/liquidate`, data),
   delete: (id) => axiosClient.delete(`devices/${id}`),
 };
 

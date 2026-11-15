@@ -5,6 +5,7 @@ const employeeApi = {
   getById: (id) => axiosClient.get(`employees/${id}`),
   create: (data) => axiosClient.post("employees", data),
   update: (id, data) => axiosClient.put(`employees/${id}`, data),
+  toggleLock: (id) => axiosClient.put(`employees/${id}/toggle-lock`),
   delete: (id) => axiosClient.delete(`employees/${id}`),
 };
 

@@ -5,35 +5,46 @@ import DevicePage from "../pages/devices/DevicePage";
 import BorrowPage from "../pages/borrow/BorrowPage";
 import EmployeePage from "../pages/emloyees/EmployeePage";
 import MaintenancePage from "../pages/maintenance/MaintenancePage";
+import RoomPage from "../pages/rooms/RoomPage";
+import ActivityLogPage from "../pages/activity/ActivityLogPage";
 import LoginPage from "../pages/auth/LoginPage";
-import ProfilePage from "../pages/auth/ProfilePage"; // Thêm trang xem thông tin cá nhân
+import ProfilePage from "../pages/auth/ProfilePage";
 import AuthGuard from "../components/auth/AuthGuard";
 
 export default function AppRoutes() {
-  // Lấy dữ liệu user từ localStorage  [cite: 5, 556-558]
-  const user = JSON.parse(localStorage.getItem("user"));
-  const userRole = user?.role?.toUpperCase(); 
+  const getUserRole = () => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "null");
+      return user?.role?.toUpperCase() || "STAFF";
+    } catch {
+      return "STAFF";
+    }
+  };
+
+  const userRole = getUserRole();
 
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        
+
         {/* Protected Routes */}
         <Route element={<AuthGuard />}>
           <Route element={<MainLayout />}>
             <Route path="/" element={<DashboardPage />} />
+            <Route path="/rooms" element={<RoomPage />} />
             <Route path="/devices" element={<DevicePage />} />
             <Route path="/borrows" element={<BorrowPage />} />
             <Route path="/maintenance" element={<MaintenancePage />} />
-            
-            {/* Trang xem tài khoản/mật khẩu dùng chung cho cả 2 */}
             <Route path="/profile" element={<ProfilePage />} />
 
-            {/* Chỉ Admin mới vào được trang này, Staff sẽ bị đẩy về Home */}
-            <Route 
-              path="/employees" 
-              element={userRole === "ADMIN" ? <EmployeePage /> : <Navigate to="/" />} 
+            {/* Quản lý nhân sự & tài khoản người dùng */}
+            <Route path="/employees" element={<EmployeePage />} />
+
+            {/* Lịch sử thao tác chỉ cho ADMIN */}
+            <Route
+              path="/activity-logs"
+              element={userRole === "ADMIN" ? <ActivityLogPage /> : <Navigate to="/" />}
             />
           </Route>
         </Route>

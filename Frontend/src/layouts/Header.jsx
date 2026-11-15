@@ -1,1 +1,1 @@
-// This file is not used - Header is at src/components/layout/Header.jsx
+export { default } from "../components/layout/Header";
